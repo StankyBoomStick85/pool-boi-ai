@@ -1,5 +1,9 @@
 export const config = { runtime: 'edge' }
 
+/**
+ * Handles saving chemicals to the catalog and inventory.
+ * Bypasses RLS by using the service role key and avoids client-side header encoding issues.
+ */
 export default async function handler(request) {
   if (request.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
