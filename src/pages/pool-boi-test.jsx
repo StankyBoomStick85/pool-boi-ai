@@ -353,18 +353,34 @@ export default function PoolBoiTest() {
 
               {camReady && (
                 <div className="pb-cam-overlay">
-                  <div className="pb-guide-row">
-                    <div className="pb-guide-slot"><span>Test strip</span></div>
-                    <div className="pb-guide-slot"><span>Color chart</span></div>
+                  {/* Row 1: Top instruction */}
+                  <div className="pb-overlay-instr pb-overlay-instr-top" style={{ gridColumn: '1 / -1' }}>
+                    Align strip and color chart
+                  </div>
+
+                  {/* Row 2: Slots row */}
+                  <div className="pb-overlay-dark" />
+                  <div className="pb-slot-v" />
+                  <div className="pb-overlay-dark" />
+                  <div className="pb-slot-v" />
+                  <div className="pb-overlay-dark" />
+
+                  {/* Row 3: Labels row */}
+                  <div className="pb-overlay-dark" />
+                  <div className="pb-overlay-label">STRIP</div>
+                  <div className="pb-overlay-dark" />
+                  <div className="pb-overlay-label">CHART</div>
+                  <div className="pb-overlay-dark" />
+
+                  {/* Row 4: Bottom instruction */}
+                  <div className="pb-overlay-instr pb-overlay-instr-bottom" style={{ gridColumn: '1 / -1' }}>
+                    Hold steady in good light
                   </div>
                 </div>
               )}
             </div>
 
             <div className="pb-cam-controls">
-              <p className="pb-cam-hint">
-                Hold steady in good light. Align the used strip and its color chart in the guides.
-              </p>
               <button
                 className="pb-capture-btn"
                 onClick={capture}

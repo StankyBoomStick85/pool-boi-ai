@@ -281,38 +281,65 @@ a {
   font-size: 13px;
 }
 
-/* Guide overlay */
+/* Full-screen camera overlay using Grid for the dark mask */
 .pb-cam-overlay {
   position: absolute;
   inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 28vw 16px 28vw 1fr;
+  grid-template-rows: 1.2fr 55vh auto 1fr;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Default state for grid cells: dark semi-transparent overlay */
+.pb-cam-overlay > div {
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none;
 }
 
-.pb-guide-row {
-  display: flex;
-  gap: 20px;
+/* The transparent viewfinder slots */
+.pb-cam-overlay .pb-slot-v {
+  background: transparent;
+  border: 3px solid #fff;
+  border-radius: 12px;
+  min-height: 400px;
+  min-width: 120px;
 }
 
-.pb-guide-slot {
-  width: 132px;
-  height: 92px;
-  border: 2px dashed var(--pb-accent);
-  border-radius: 8px;
-  background: rgba(14, 165, 233, 0.06);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 8px;
-}
-
-.pb-guide-slot span {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
+/* Labels below slots */
+.pb-overlay-label {
+  background: rgba(0, 0, 0, 0.5); /* Keep it dark */
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  padding: 12px 0 16px;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  align-items: flex-start !important; /* Move text to top of label row */
+}
+
+/* Instructions in the top/bottom areas */
+.pb-overlay-instr {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  padding: 20px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.pb-overlay-instr-top {
+  align-items: flex-end !important;
+  padding-bottom: 30px;
+}
+
+.pb-overlay-instr-bottom {
+  align-items: flex-start !important;
+  padding-top: 20px;
 }
 
 /* Controls bar (capture / preview buttons) */
