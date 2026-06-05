@@ -118,6 +118,23 @@ export default function PoolBoiInventory() {
     analyzeImage(base64)
   }
 
+  async function runTestQuery() {
+    try {
+      const { data, error } = await supabase
+        .from('pool_boi_chemical_catalog')
+        .select('*')
+        .limit(1)
+      
+      if (error) {
+        alert(`ERROR: ${error.message} (Code: ${error.code})`)
+      } else {
+        alert(`CONNECTION OK: ${JSON.stringify(data[0] || 'No rows found')}`)
+      }
+    } catch (err) {
+      alert(`FETCH EXCEPTION: ${err.message}`)
+    }
+  }
+
   async function analyzeImage(imgData) {
     setAnalyzing(true)
     try {
@@ -375,6 +392,12 @@ export default function PoolBoiInventory() {
       </header>
 
       <div className="pb-results-body">
+        <button 
+          onClick={runTestQuery}
+          style={{ width: '100%', padding: '10px', background: '#334155', color: 'white', borderRadius: '8px', border: 'none', marginBottom: '16px', fontWeight: 'bold' }}
+        >
+          Test Supabase Connection
+        </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
           <button className="pb-capture-btn" style={{ fontSize: '14px' }} onClick={() => setPhase('camera')}>
             Scan Label
