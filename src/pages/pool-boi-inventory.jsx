@@ -41,7 +41,6 @@ export default function PoolBoiInventory() {
   
   const [formData, setFormData] = useState(BLANK_FORM)
   const [saveLoading, setSaveLoading] = useState(false)
-  const [debugInfo, setDebugInfo] = useState('')
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -118,23 +117,6 @@ export default function PoolBoiInventory() {
     analyzeImage(base64)
   }
 
-  async function runTestQuery() {
-    try {
-      const { data, error } = await supabase
-        .from('pool_boi_chemical_catalog')
-        .select('*')
-        .limit(1)
-      
-      if (error) {
-        alert(`ERROR: ${error.message} (Code: ${error.code})`)
-      } else {
-        alert(`CONNECTION OK: ${JSON.stringify(data[0] || 'No rows found')}`)
-      }
-    } catch (err) {
-      alert(`FETCH EXCEPTION: ${err.message}`)
-    }
-  }
-
   async function analyzeImage(imgData) {
     setAnalyzing(true)
     try {
@@ -169,103 +151,24 @@ export default function PoolBoiInventory() {
   // ── Form Handlers ──────────────────────────────────────────────────────────
 
   async function handleSave() {
-    console.log('--- START SAVE TRACE (RAW FETCH) ---');
-    setDebugInfo('Step 0: STARTING SAVE...')
     setSaveLoading(true)
-
-    const SUPA_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const headers = {
-      'Content-Type': 'application/json',
-      'apikey': SUPA_KEY,
-      'Authorization': `Bearer ${SUPA_KEY}`
-    };
-
     try {
-      setDebugInfo('Step 1: Preparing catalog lookup...')
-      const brandEnc = encodeURIComponent(formData.brand);
-      const nameEnc = encodeURIComponent(formData.product_name);
-      
-      // 1. Check if product already exists in catalog
-      const lookupUrl = `${SUPA_URL}/rest/v1/pool_boi_chemical_catalog?brand=eq.${brandEnc}&product_name=eq.${nameEnc}&select=id`;
-      
-      console.log('Step 2: Catalog lookup fetch', lookupUrl);
-      const lookupRes = await fetch(lookupUrl, { headers });
-      if (!lookupRes.ok) throw new Error(`Lookup failed: ${lookupRes.status}`);
-      
-      const catRows = await lookupRes.json();
-      console.log('Step 3: Catalog lookup result', catRows);
-
-      let catalogId;
-      if (catRows && catRows.length > 0) {
-        setDebugInfo('Step 4: Product found in catalog')
-        catalogId = catRows[0].id;
-      } else {
-        setDebugInfo('Step 5: Adding new product to catalog...')
-        // Insert into catalog
-        const insertCatUrl = `${SUPA_URL}/rest/v1/pool_boi_chemical_catalog`;
-        const catBody = {
-          brand: formData.brand,
-          product_name: formData.product_name,
-          primary_chemical: formData.primary_chemical,
-          function_tag: formData.function_tag,
-          unit_type: formData.unit_type
-        };
-        
-        console.log('Step 6: Catalog insert POST', insertCatUrl, catBody);
-        const catInsRes = await fetch(insertCatUrl, {
-          method: 'POST',
-          headers: { ...headers, 'Prefer': 'return=representation' },
-          body: JSON.stringify(catBody)
-        });
-        
-        if (!catInsRes.ok) {
-          const errText = await catInsRes.text();
-          throw new Error(`Catalog insert failed: ${catInsRes.status} ${errText}`);
-        }
-        
-        const newCatRows = await catInsRes.json();
-        console.log('Step 7: Catalog insert result', newCatRows);
-        catalogId = newCatRows[0].id;
-      }
-
-      // 2. Insert into inventory
-      setDebugInfo('Step 8: Adding to your shelf...')
-      const insertInvUrl = `${SUPA_URL}/rest/v1/pool_boi_inventory`;
-      const invBody = {
-        catalog_id: catalogId,
-        total_volume_capacity: Number(formData.total_volume_capacity),
-        current_volume_level: Number(formData.current_volume_level)
-      };
-
-      console.log('Step 9: Inventory insert POST', insertInvUrl, invBody);
-      const invInsRes = await fetch(insertInvUrl, {
+      const res = await fetch('/api/save-chemical', {
         method: 'POST',
-        headers,
-        body: JSON.stringify(invBody)
-      });
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      })
+      
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Save failed')
 
-      if (!invInsRes.ok) {
-        const errText = await invInsRes.text();
-        throw new Error(`Inventory insert failed: ${invInsRes.status} ${errText}`);
-      }
-      
-      console.log('Step 10: Inventory insert successful');
-      setDebugInfo('Step 11: Refreshing shelf...')
-      await fetchInventory();
-      
-      setDebugInfo('Step 12: SUCCESS!')
-      setPhase('list');
-      setFormData(BLANK_FORM);
-      setTimeout(() => setDebugInfo(''), 3000)
+      await fetchInventory()
+      setPhase('list')
+      setFormData(BLANK_FORM)
     } catch (err) {
-      console.error('--- RAW FETCH FAILED ---', err);
-      const failMsg = `FAILED: ${err.name} - ${err.message}`
-      setDebugInfo(failMsg)
       alert('Save failed: ' + err.message)
     } finally {
       setSaveLoading(false)
-      console.log('--- END SAVE TRACE ---');
     }
   }
 
@@ -274,11 +177,6 @@ export default function PoolBoiInventory() {
   if (phase === 'camera') {
     return (
       <div className="pb-test-page">
-        {debugInfo && (
-          <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
-            {debugInfo}
-          </div>
-        )}
         <header className="pb-test-header">
           <button className="pb-back-btn" onClick={() => setPhase('list')}>‹</button>
           <h1>Scan Bottle Label</h1>
@@ -310,11 +208,6 @@ export default function PoolBoiInventory() {
   if (phase === 'form') {
     return (
       <div className="pb-test-scroll">
-        {debugInfo && (
-          <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
-            {debugInfo}
-          </div>
-        )}
         <header className="pb-test-header">
           <button className="pb-back-btn" onClick={() => setPhase('list')}>‹</button>
           <h1>{capturedImg ? 'Confirm Product' : 'Add Manually'}</h1>
@@ -384,23 +277,12 @@ export default function PoolBoiInventory() {
 
   return (
     <div className="pb-test-scroll">
-      {debugInfo && (
-        <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
-          {debugInfo}
-        </div>
-      )}
       <header className="pb-test-header">
         <button className="pb-back-btn" onClick={() => navigate('/')}>‹</button>
         <h1>My Chemical Shelf</h1>
       </header>
 
       <div className="pb-results-body">
-        <button 
-          onClick={runTestQuery}
-          style={{ width: '100%', padding: '10px', background: '#334155', color: 'white', borderRadius: '8px', border: 'none', marginBottom: '16px', fontWeight: 'bold' }}
-        >
-          Test Supabase Connection
-        </button>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
           <button className="pb-capture-btn" style={{ fontSize: '14px' }} onClick={() => setPhase('camera')}>
             Scan Label
