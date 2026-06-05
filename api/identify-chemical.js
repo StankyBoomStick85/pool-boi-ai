@@ -106,17 +106,23 @@ export default async function handler(request) {
     try {
       const parsed = JSON.parse(cleaned)
       
-      // Aggressive sanitization to prevent non-ISO-8859-1 header errors
-      const sanitize = (str) => (typeof str === 'string' ? str.replace(/[^a-zA-Z0-9 .,\-\/%()\[\]]/g, '').trim() : str)
-      
-      const sanitized = {
-        ...parsed,
-        brand: sanitize(parsed.brand),
-        product_name: sanitize(parsed.product_name),
-        primary_chemical: sanitize(parsed.primary_chemical),
-        function_tag: sanitize(parsed.function_tag),
-        unit_type: sanitize(parsed.unit_type),
-      }
+      const deepSanitize = (obj) => {
+        const clean = {};
+        for (const [key, value] of Object.entries(obj)) {
+          if (typeof value === 'string') {
+            clean[key] = value
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[^\x20-\x7E]/g, '')
+              .trim();
+          } else {
+            clean[key] = value;
+          }
+        }
+        return clean;
+      };
+
+      const sanitized = deepSanitize(parsed);
 
       return new Response(JSON.stringify(sanitized), {
         status: 200,

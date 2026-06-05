@@ -152,18 +152,32 @@ export default function PoolBoiInventory() {
 
   async function handleSave() {
     setSaveLoading(true)
-    const sanitize = (str) => (str ? str.replace(/[^a-zA-Z0-9 .,\-\/%()\[\]]/g, '').trim() : '')
+    const deepSanitize = (obj) => {
+      const clean = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string') {
+          clean[key] = value
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^\x20-\x7E]/g, '')
+            .trim();
+        } else {
+          clean[key] = value;
+        }
+      }
+      return clean;
+    };
 
     try {
       console.log('Original formData:', JSON.stringify(formData))
 
-      const cleanData = {
-        brand: sanitize(formData.brand),
-        product_name: sanitize(formData.product_name),
-        primary_chemical: sanitize(formData.primary_chemical),
-        function_tag: sanitize(formData.function_tag),
-        unit_type: sanitize(formData.unit_type),
-      }
+      const cleanData = deepSanitize({
+        brand: formData.brand,
+        product_name: formData.product_name,
+        primary_chemical: formData.primary_chemical,
+        function_tag: formData.function_tag,
+        unit_type: formData.unit_type,
+      })
 
       console.log('Sanitized cleanData:', JSON.stringify(cleanData))
 
@@ -183,13 +197,13 @@ export default function PoolBoiInventory() {
       if (catData) {
         catalogId = catData.id
       } else {
-        const insertObj = {
+        const insertObj = deepSanitize({
           brand: cleanData.brand,
           product_name: cleanData.product_name,
           primary_chemical: cleanData.primary_chemical,
           function_tag: cleanData.function_tag,
           unit_type: cleanData.unit_type
-        }
+        })
         console.log('Inserting into catalog:', JSON.stringify(insertObj))
         
         const { data: newCat, error: newCatErr } = await supabase
@@ -206,11 +220,11 @@ export default function PoolBoiInventory() {
       }
 
       // 2. Insert into inventory
-      const invObj = {
+      const invObj = deepSanitize({
         catalog_id: catalogId,
         total_volume_capacity: formData.total_volume_capacity,
         current_volume_level: formData.current_volume_level,
-      }
+      })
       console.log('Inserting into inventory:', JSON.stringify(invObj))
 
       const { error: invError } = await supabase
