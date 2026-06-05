@@ -152,13 +152,23 @@ export default function PoolBoiInventory() {
 
   async function handleSave() {
     setSaveLoading(true)
+    const sanitize = (str) => (str ? str.replace(/[^\x00-\x7F]/g, '').trim() : '')
+
     try {
+      const cleanData = {
+        brand: sanitize(formData.brand),
+        product_name: sanitize(formData.product_name),
+        primary_chemical: sanitize(formData.primary_chemical),
+        function_tag: sanitize(formData.function_tag),
+        unit_type: sanitize(formData.unit_type),
+      }
+
       // 1. Check/Insert into catalog
       let { data: catData, error: catError } = await supabase
         .from('pool_boi_chemical_catalog')
         .select('id')
-        .eq('brand', formData.brand)
-        .eq('product_name', formData.product_name)
+        .eq('brand', cleanData.brand)
+        .eq('product_name', cleanData.product_name)
         .single()
       
       let catalogId
@@ -168,11 +178,11 @@ export default function PoolBoiInventory() {
         const { data: newCat, error: newCatErr } = await supabase
           .from('pool_boi_chemical_catalog')
           .insert([{
-            brand: formData.brand,
-            product_name: formData.product_name,
-            primary_chemical: formData.primary_chemical,
-            function_tag: formData.function_tag,
-            unit_type: formData.unit_type
+            brand: cleanData.brand,
+            product_name: cleanData.product_name,
+            primary_chemical: cleanData.primary_chemical,
+            function_tag: cleanData.function_tag,
+            unit_type: cleanData.unit_type
           }])
           .select()
           .single()

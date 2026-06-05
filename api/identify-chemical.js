@@ -114,6 +114,8 @@ export default async function handler(request) {
         brand: sanitize(parsed.brand),
         product_name: sanitize(parsed.product_name),
         primary_chemical: sanitize(parsed.primary_chemical),
+        function_tag: sanitize(parsed.function_tag),
+        unit_type: sanitize(parsed.unit_type),
       }
 
       return new Response(JSON.stringify(sanitized), {
