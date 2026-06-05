@@ -106,8 +106,8 @@ export default async function handler(request) {
     try {
       const parsed = JSON.parse(cleaned)
       
-      // Sanitize string fields to prevent non-ISO-8859-1 header errors
-      const sanitize = (str) => (typeof str === 'string' ? str.replace(/[^\x00-\x7F]/g, '') : str)
+      // Aggressive sanitization to prevent non-ISO-8859-1 header errors
+      const sanitize = (str) => (typeof str === 'string' ? str.replace(/[^a-zA-Z0-9 .,\-\/%()\[\]]/g, '').trim() : str)
       
       const sanitized = {
         ...parsed,

@@ -152,9 +152,11 @@ export default function PoolBoiInventory() {
 
   async function handleSave() {
     setSaveLoading(true)
-    const sanitize = (str) => (str ? str.replace(/[^\x00-\x7F]/g, '').trim() : '')
+    const sanitize = (str) => (str ? str.replace(/[^a-zA-Z0-9 .,\-\/%()\[\]]/g, '').trim() : '')
 
     try {
+      console.log('Original formData:', JSON.stringify(formData))
+
       const cleanData = {
         brand: sanitize(formData.brand),
         product_name: sanitize(formData.product_name),
@@ -162,6 +164,8 @@ export default function PoolBoiInventory() {
         function_tag: sanitize(formData.function_tag),
         unit_type: sanitize(formData.unit_type),
       }
+
+      console.log('Sanitized cleanData:', JSON.stringify(cleanData))
 
       // 1. Check/Insert into catalog
       let { data: catData, error: catError } = await supabase
@@ -171,33 +175,47 @@ export default function PoolBoiInventory() {
         .eq('product_name', cleanData.product_name)
         .single()
       
+      if (catError && catError.code !== 'PGRST116') {
+        console.error('Catalog lookup error:', catError)
+      }
+
       let catalogId
       if (catData) {
         catalogId = catData.id
       } else {
+        const insertObj = {
+          brand: cleanData.brand,
+          product_name: cleanData.product_name,
+          primary_chemical: cleanData.primary_chemical,
+          function_tag: cleanData.function_tag,
+          unit_type: cleanData.unit_type
+        }
+        console.log('Inserting into catalog:', JSON.stringify(insertObj))
+        
         const { data: newCat, error: newCatErr } = await supabase
           .from('pool_boi_chemical_catalog')
-          .insert([{
-            brand: cleanData.brand,
-            product_name: cleanData.product_name,
-            primary_chemical: cleanData.primary_chemical,
-            function_tag: cleanData.function_tag,
-            unit_type: cleanData.unit_type
-          }])
+          .insert([insertObj])
           .select()
           .single()
-        if (newCatErr) throw newCatErr
+        
+        if (newCatErr) {
+          console.error('Catalog insert error:', newCatErr)
+          throw newCatErr
+        }
         catalogId = newCat.id
       }
 
       // 2. Insert into inventory
+      const invObj = {
+        catalog_id: catalogId,
+        total_volume_capacity: formData.total_volume_capacity,
+        current_volume_level: formData.current_volume_level,
+      }
+      console.log('Inserting into inventory:', JSON.stringify(invObj))
+
       const { error: invError } = await supabase
         .from('pool_boi_inventory')
-        .insert([{
-          catalog_id: catalogId,
-          total_volume_capacity: formData.total_volume_capacity,
-          current_volume_level: formData.current_volume_level,
-        }])
+        .insert([invObj])
       
       if (invError) throw invError
       
