@@ -94,16 +94,26 @@ export default async function handler(request) {
     const data = await response.json()
     const content = data.content[0].text
     
-    // Attempt to parse JSON from the response
+    // Robust JSON extraction
+    let cleaned = content.replace(/```json/g, '').replace(/```/g, '').trim()
+    const start = cleaned.indexOf('{')
+    const end = cleaned.lastIndexOf('}')
+    
+    if (start !== -1 && end !== -1 && end > start) {
+      cleaned = cleaned.substring(start, end + 1)
+    }
+
     try {
-      const parsed = JSON.parse(content)
+      const parsed = JSON.parse(cleaned)
       return new Response(JSON.stringify(parsed), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     } catch (e) {
-      console.error('Failed to parse Claude response:', content)
-      return new Response(JSON.stringify({ error: 'Failed to parse AI response', raw: content }), {
+      return new Response(JSON.stringify({ 
+        error: 'Failed to parse AI response', 
+        raw: content 
+      }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' },
       })
