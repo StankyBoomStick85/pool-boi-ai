@@ -180,13 +180,14 @@ export default function PoolBoiInventory() {
       // 1. Check/Insert into catalog
       setDebugInfo('Step 2: Checking catalog...')
       console.log('Step 2: Starting catalog lookup');
-      let { data: catData, error: catError } = await supabase
+      let { data: catRows, error: catError } = await supabase
         .from('pool_boi_chemical_catalog')
         .select('id')
         .eq('brand', formData.brand)
         .eq('product_name', formData.product_name)
-        .single()
+        .limit(1)
       
+      const catData = catRows && catRows.length > 0 ? catRows[0] : null
       console.log('Step 3: Catalog lookup finished', { catData, catError });
 
       if (catError && catError.code !== 'PGRST116') {
@@ -210,19 +211,19 @@ export default function PoolBoiInventory() {
         }
         console.log('Step 6: Insert object prepared', JSON.stringify(insertObj));
         
-        const { data: newCat, error: newCatErr } = await supabase
+        const { data: newCatRows, error: newCatErr } = await supabase
           .from('pool_boi_chemical_catalog')
           .insert([insertObj])
           .select()
-          .single()
         
+        const newCat = newCatRows && newCatRows.length > 0 ? newCatRows[0] : null
         console.log('Step 7: Catalog insert finished', { newCat, newCatErr });
 
         if (newCatErr) {
           console.error('Step 7b: Catalog insert error:', newCatErr)
           throw newCatErr
         }
-        catalogId = newCat.id
+        catalogId = newCat?.id
       }
 
       // 2. Insert into inventory
