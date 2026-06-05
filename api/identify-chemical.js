@@ -105,7 +105,18 @@ export default async function handler(request) {
 
     try {
       const parsed = JSON.parse(cleaned)
-      return new Response(JSON.stringify(parsed), {
+      
+      // Sanitize string fields to prevent non-ISO-8859-1 header errors
+      const sanitize = (str) => (typeof str === 'string' ? str.replace(/[^\x00-\x7F]/g, '') : str)
+      
+      const sanitized = {
+        ...parsed,
+        brand: sanitize(parsed.brand),
+        product_name: sanitize(parsed.product_name),
+        primary_chemical: sanitize(parsed.primary_chemical),
+      }
+
+      return new Response(JSON.stringify(sanitized), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
