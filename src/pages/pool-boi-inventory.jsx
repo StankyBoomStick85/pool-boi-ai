@@ -169,97 +169,99 @@ export default function PoolBoiInventory() {
   // ── Form Handlers ──────────────────────────────────────────────────────────
 
   async function handleSave() {
+    console.log('--- START SAVE TRACE (RAW FETCH) ---');
     setDebugInfo('Step 0: STARTING SAVE...')
-    console.log('--- START SAVE TRACE ---');
     setSaveLoading(true)
 
+    const SUPA_URL = import.meta.env.VITE_SUPABASE_URL;
+    const SUPA_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': SUPA_KEY,
+      'Authorization': `Bearer ${SUPA_KEY}`
+    };
+
     try {
-      setDebugInfo('Step 1: Form Data validated')
-      console.log('Step 1: Raw formData', JSON.stringify(formData));
-
-      // 1. Check/Insert into catalog
-      setDebugInfo('Step 2: Checking catalog...')
-      console.log('Step 2: Starting catalog lookup');
-      let { data: catRows, error: catError } = await supabase
-        .from('pool_boi_chemical_catalog')
-        .select('id')
-        .eq('brand', formData.brand)
-        .eq('product_name', formData.product_name)
-        .limit(1)
+      setDebugInfo('Step 1: Preparing catalog lookup...')
+      const brandEnc = encodeURIComponent(formData.brand);
+      const nameEnc = encodeURIComponent(formData.product_name);
       
-      const catData = catRows && catRows.length > 0 ? catRows[0] : null
-      console.log('Step 3: Catalog lookup finished', { catData, catError });
+      // 1. Check if product already exists in catalog
+      const lookupUrl = `${SUPA_URL}/rest/v1/pool_boi_chemical_catalog?brand=eq.${brandEnc}&product_name=eq.${nameEnc}&select=id`;
+      
+      console.log('Step 2: Catalog lookup fetch', lookupUrl);
+      const lookupRes = await fetch(lookupUrl, { headers });
+      if (!lookupRes.ok) throw new Error(`Lookup failed: ${lookupRes.status}`);
+      
+      const catRows = await lookupRes.json();
+      console.log('Step 3: Catalog lookup result', catRows);
 
-      if (catError && catError.code !== 'PGRST116') {
-        console.error('Step 3b: Unexpected Catalog lookup error:', catError)
-      }
-
-      let catalogId
-      if (catData) {
+      let catalogId;
+      if (catRows && catRows.length > 0) {
         setDebugInfo('Step 4: Product found in catalog')
-        console.log('Step 4: Using existing catalog ID', catData.id);
-        catalogId = catData.id
+        catalogId = catRows[0].id;
       } else {
         setDebugInfo('Step 5: Adding new product to catalog...')
-        console.log('Step 5: Product not in catalog, starting insert');
-        const insertObj = {
+        // Insert into catalog
+        const insertCatUrl = `${SUPA_URL}/rest/v1/pool_boi_chemical_catalog`;
+        const catBody = {
           brand: formData.brand,
           product_name: formData.product_name,
           primary_chemical: formData.primary_chemical,
           function_tag: formData.function_tag,
           unit_type: formData.unit_type
-        }
-        console.log('Step 6: Insert object prepared', JSON.stringify(insertObj));
+        };
         
-        const { data: newCatRows, error: newCatErr } = await supabase
-          .from('pool_boi_chemical_catalog')
-          .insert([insertObj])
-          .select()
+        console.log('Step 6: Catalog insert POST', insertCatUrl, catBody);
+        const catInsRes = await fetch(insertCatUrl, {
+          method: 'POST',
+          headers: { ...headers, 'Prefer': 'return=representation' },
+          body: JSON.stringify(catBody)
+        });
         
-        const newCat = newCatRows && newCatRows.length > 0 ? newCatRows[0] : null
-        console.log('Step 7: Catalog insert finished', { newCat, newCatErr });
-
-        if (newCatErr) {
-          console.error('Step 7b: Catalog insert error:', newCatErr)
-          throw newCatErr
+        if (!catInsRes.ok) {
+          const errText = await catInsRes.text();
+          throw new Error(`Catalog insert failed: ${catInsRes.status} ${errText}`);
         }
-        catalogId = newCat?.id
+        
+        const newCatRows = await catInsRes.json();
+        console.log('Step 7: Catalog insert result', newCatRows);
+        catalogId = newCatRows[0].id;
       }
 
       // 2. Insert into inventory
       setDebugInfo('Step 8: Adding to your shelf...')
-      console.log('Step 8: Starting inventory insert');
-      const invObj = {
+      const insertInvUrl = `${SUPA_URL}/rest/v1/pool_boi_inventory`;
+      const invBody = {
         catalog_id: catalogId,
-        total_volume_capacity: formData.total_volume_capacity,
-        current_volume_level: formData.current_volume_level,
-      }
-      console.log('Step 9: Inventory object prepared', JSON.stringify(invObj));
+        total_volume_capacity: Number(formData.total_volume_capacity),
+        current_volume_level: Number(formData.current_volume_level)
+      };
 
-      const { error: invError } = await supabase
-        .from('pool_boi_inventory')
-        .insert([invObj])
+      console.log('Step 9: Inventory insert POST', insertInvUrl, invBody);
+      const invInsRes = await fetch(insertInvUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(invBody)
+      });
+
+      if (!invInsRes.ok) {
+        const errText = await invInsRes.text();
+        throw new Error(`Inventory insert failed: ${invInsRes.status} ${errText}`);
+      }
       
-      console.log('Step 10: Inventory insert finished', { invError });
-      if (invError) throw invError
-      
-      setDebugInfo('Step 11: Refreshing list...')
-      console.log('Step 11: Fetching updated inventory');
-      await fetchInventory()
+      console.log('Step 10: Inventory insert successful');
+      setDebugInfo('Step 11: Refreshing shelf...')
+      await fetchInventory();
       
       setDebugInfo('Step 12: SUCCESS!')
-      console.log('Step 12: Success, switching to list phase');
-      setPhase('list')
-      setFormData(BLANK_FORM)
-      // Clear debug info after a successful save delay
+      setPhase('list');
+      setFormData(BLANK_FORM);
       setTimeout(() => setDebugInfo(''), 3000)
     } catch (err) {
+      console.error('--- RAW FETCH FAILED ---', err);
       const failMsg = `FAILED: ${err.name} - ${err.message}`
       setDebugInfo(failMsg)
-      console.error('--- SAVE TRACE FAILED ---');
-      console.error('Error type:', err.name);
-      console.error('Error message:', err.message);
-      console.error('Error stack:', err.stack);
       alert('Save failed: ' + err.message)
     } finally {
       setSaveLoading(false)
