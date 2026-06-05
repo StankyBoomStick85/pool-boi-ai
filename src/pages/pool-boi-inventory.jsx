@@ -41,6 +41,7 @@ export default function PoolBoiInventory() {
   
   const [formData, setFormData] = useState(BLANK_FORM)
   const [saveLoading, setSaveLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState('')
 
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
@@ -151,13 +152,16 @@ export default function PoolBoiInventory() {
   // ── Form Handlers ──────────────────────────────────────────────────────────
 
   async function handleSave() {
+    setDebugInfo('Step 0: STARTING SAVE...')
     console.log('--- START SAVE TRACE ---');
     setSaveLoading(true)
 
     try {
+      setDebugInfo('Step 1: Form Data validated')
       console.log('Step 1: Raw formData', JSON.stringify(formData));
 
       // 1. Check/Insert into catalog
+      setDebugInfo('Step 2: Checking catalog...')
       console.log('Step 2: Starting catalog lookup');
       let { data: catData, error: catError } = await supabase
         .from('pool_boi_chemical_catalog')
@@ -174,9 +178,11 @@ export default function PoolBoiInventory() {
 
       let catalogId
       if (catData) {
+        setDebugInfo('Step 4: Product found in catalog')
         console.log('Step 4: Using existing catalog ID', catData.id);
         catalogId = catData.id
       } else {
+        setDebugInfo('Step 5: Adding new product to catalog...')
         console.log('Step 5: Product not in catalog, starting insert');
         const insertObj = {
           brand: formData.brand,
@@ -203,6 +209,7 @@ export default function PoolBoiInventory() {
       }
 
       // 2. Insert into inventory
+      setDebugInfo('Step 8: Adding to your shelf...')
       console.log('Step 8: Starting inventory insert');
       const invObj = {
         catalog_id: catalogId,
@@ -218,13 +225,19 @@ export default function PoolBoiInventory() {
       console.log('Step 10: Inventory insert finished', { invError });
       if (invError) throw invError
       
+      setDebugInfo('Step 11: Refreshing list...')
       console.log('Step 11: Fetching updated inventory');
       await fetchInventory()
       
+      setDebugInfo('Step 12: SUCCESS!')
       console.log('Step 12: Success, switching to list phase');
       setPhase('list')
       setFormData(BLANK_FORM)
+      // Clear debug info after a successful save delay
+      setTimeout(() => setDebugInfo(''), 3000)
     } catch (err) {
+      const failMsg = `FAILED: ${err.name} - ${err.message}`
+      setDebugInfo(failMsg)
       console.error('--- SAVE TRACE FAILED ---');
       console.error('Error type:', err.name);
       console.error('Error message:', err.message);
@@ -241,6 +254,11 @@ export default function PoolBoiInventory() {
   if (phase === 'camera') {
     return (
       <div className="pb-test-page">
+        {debugInfo && (
+          <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
+            {debugInfo}
+          </div>
+        )}
         <header className="pb-test-header">
           <button className="pb-back-btn" onClick={() => setPhase('list')}>‹</button>
           <h1>Scan Bottle Label</h1>
@@ -272,6 +290,11 @@ export default function PoolBoiInventory() {
   if (phase === 'form') {
     return (
       <div className="pb-test-scroll">
+        {debugInfo && (
+          <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
+            {debugInfo}
+          </div>
+        )}
         <header className="pb-test-header">
           <button className="pb-back-btn" onClick={() => setPhase('list')}>‹</button>
           <h1>{capturedImg ? 'Confirm Product' : 'Add Manually'}</h1>
@@ -341,6 +364,11 @@ export default function PoolBoiInventory() {
 
   return (
     <div className="pb-test-scroll">
+      {debugInfo && (
+        <div style={{background:'red', color:'white', padding:'10px', fontSize:'14px', position: 'sticky', top: 0, zIndex: 100}}>
+          {debugInfo}
+        </div>
+      )}
       <header className="pb-test-header">
         <button className="pb-back-btn" onClick={() => navigate('/')}>‹</button>
         <h1>My Chemical Shelf</h1>
