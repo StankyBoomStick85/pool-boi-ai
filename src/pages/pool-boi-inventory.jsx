@@ -151,60 +151,41 @@ export default function PoolBoiInventory() {
   // ── Form Handlers ──────────────────────────────────────────────────────────
 
   async function handleSave() {
+    console.log('--- START SAVE TRACE ---');
     setSaveLoading(true)
-    const deepSanitize = (obj) => {
-      const clean = {};
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === 'string') {
-          clean[key] = value
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^\x20-\x7E]/g, '')
-            .trim();
-        } else {
-          clean[key] = value;
-        }
-      }
-      return clean;
-    };
 
     try {
-      console.log('Original formData:', JSON.stringify(formData))
-
-      const cleanData = deepSanitize({
-        brand: formData.brand,
-        product_name: formData.product_name,
-        primary_chemical: formData.primary_chemical,
-        function_tag: formData.function_tag,
-        unit_type: formData.unit_type,
-      })
-
-      console.log('Sanitized cleanData:', JSON.stringify(cleanData))
+      console.log('Step 1: Raw formData', JSON.stringify(formData));
 
       // 1. Check/Insert into catalog
+      console.log('Step 2: Starting catalog lookup');
       let { data: catData, error: catError } = await supabase
         .from('pool_boi_chemical_catalog')
         .select('id')
-        .eq('brand', cleanData.brand)
-        .eq('product_name', cleanData.product_name)
+        .eq('brand', formData.brand)
+        .eq('product_name', formData.product_name)
         .single()
       
+      console.log('Step 3: Catalog lookup finished', { catData, catError });
+
       if (catError && catError.code !== 'PGRST116') {
-        console.error('Catalog lookup error:', catError)
+        console.error('Step 3b: Unexpected Catalog lookup error:', catError)
       }
 
       let catalogId
       if (catData) {
+        console.log('Step 4: Using existing catalog ID', catData.id);
         catalogId = catData.id
       } else {
-        const insertObj = deepSanitize({
-          brand: cleanData.brand,
-          product_name: cleanData.product_name,
-          primary_chemical: cleanData.primary_chemical,
-          function_tag: cleanData.function_tag,
-          unit_type: cleanData.unit_type
-        })
-        console.log('Inserting into catalog:', JSON.stringify(insertObj))
+        console.log('Step 5: Product not in catalog, starting insert');
+        const insertObj = {
+          brand: formData.brand,
+          product_name: formData.product_name,
+          primary_chemical: formData.primary_chemical,
+          function_tag: formData.function_tag,
+          unit_type: formData.unit_type
+        }
+        console.log('Step 6: Insert object prepared', JSON.stringify(insertObj));
         
         const { data: newCat, error: newCatErr } = await supabase
           .from('pool_boi_chemical_catalog')
@@ -212,34 +193,46 @@ export default function PoolBoiInventory() {
           .select()
           .single()
         
+        console.log('Step 7: Catalog insert finished', { newCat, newCatErr });
+
         if (newCatErr) {
-          console.error('Catalog insert error:', newCatErr)
+          console.error('Step 7b: Catalog insert error:', newCatErr)
           throw newCatErr
         }
         catalogId = newCat.id
       }
 
       // 2. Insert into inventory
-      const invObj = deepSanitize({
+      console.log('Step 8: Starting inventory insert');
+      const invObj = {
         catalog_id: catalogId,
         total_volume_capacity: formData.total_volume_capacity,
         current_volume_level: formData.current_volume_level,
-      })
-      console.log('Inserting into inventory:', JSON.stringify(invObj))
+      }
+      console.log('Step 9: Inventory object prepared', JSON.stringify(invObj));
 
       const { error: invError } = await supabase
         .from('pool_boi_inventory')
         .insert([invObj])
       
+      console.log('Step 10: Inventory insert finished', { invError });
       if (invError) throw invError
       
+      console.log('Step 11: Fetching updated inventory');
       await fetchInventory()
+      
+      console.log('Step 12: Success, switching to list phase');
       setPhase('list')
       setFormData(BLANK_FORM)
     } catch (err) {
+      console.error('--- SAVE TRACE FAILED ---');
+      console.error('Error type:', err.name);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
       alert('Save failed: ' + err.message)
     } finally {
       setSaveLoading(false)
+      console.log('--- END SAVE TRACE ---');
     }
   }
 
